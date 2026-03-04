@@ -1,8 +1,8 @@
 {
   "name": "aikido-security",
   "owner": {
-    "name": "aikido-security",
-    "url": ""
+    "name": "Spiris Innovation Tech Dev",
+    "url": "https://github.com/Spiris-Innovation-Tech-Dev/aikido-tools-rs"
   },
   "metadata": {
     "description": "Claude Code skill for the Aikido Security CLI",
