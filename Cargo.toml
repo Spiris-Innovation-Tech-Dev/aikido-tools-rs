@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aikido",
+    "crates/aikido-cli",
+    "crates/aikido-mcp",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["JS"]

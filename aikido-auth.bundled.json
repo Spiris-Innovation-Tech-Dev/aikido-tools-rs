@@ -1,0 +1,174 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Authorization",
+    "version": "1.0.0",
+    "description": "This document outlines the endpoints for the OAuth server of Aikido",
+    "termsOfService": "https://www.aikido.dev/policies/terms",
+    "contact": {
+      "name": "Support",
+      "url": "https://www.aikido.dev",
+      "email": "support@aikido.dev"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://app.aikido.dev/api/oauth"
+    }
+  ],
+  "paths": {
+    "/token": {
+      "post": {
+        "operationId": "getAccessToken",
+        "summary": "Get access token",
+        "description": "Retrieve an access token, see more information about authorization on https://apidocs.aikido.dev/reference/authorization",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "description": "Use the Basic auth header with base64 encoding where the username is your client_id and password is the client_secret",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "example": "Basic TVlfQ0xJRU5UX0lEOk1ZX0NMSUVOVF9TRUNSRVQ="
+          }
+        ],
+        "requestBody": {
+          "description": "The parameters needed to retrieve an access token",
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded:": {
+              "schema": {
+                "format": "Object",
+                "title": "Get access token request body",
+                "description": "",
+                "required": [
+                  "grant_type"
+                ],
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "enum": [
+                      "client_credentials",
+                      "authorization_code",
+                      "refresh_token"
+                    ]
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "The authorization code in case of authorization_code grant type"
+                  },
+                  "redirect_uri": {
+                    "type": "string",
+                    "description": "The redirect uri in case of authorization_code grant type"
+                  },
+                  "refresh_token": {
+                    "type": "string",
+                    "description": "The refresh token in case of refresh_token grant type"
+                  }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "format": "Object",
+                "title": "Get access token request body",
+                "description": "",
+                "required": [
+                  "grant_type"
+                ],
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "enum": [
+                      "client_credentials",
+                      "authorization_code",
+                      "refresh_token"
+                    ]
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "The authorization code in case of authorization_code grant type"
+                  },
+                  "redirect_uri": {
+                    "type": "string",
+                    "description": "The redirect uri in case of authorization_code grant type"
+                  },
+                  "refresh_token": {
+                    "type": "string",
+                    "description": "The refresh token in case of refresh_token grant type"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorization has been granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "object",
+                  "required": [],
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "description": "The access token in JWT format"
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "description": "The number of seconds the access token is valid for"
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "enum": [
+                        "bearer"
+                      ]
+                    }
+                  },
+                  "example": {
+                    "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.NHVaYe26MbtOYhSKkoKYdFVomg4i8ZJd8_-RU8VNbftc4TSMb4bXP3l3YlNWACwyXPGffz5aXHc6lty1Y2t4SWRqGteragsVdZufDn5BlnJl9pdR_kdVFUsra2rWKEofkZeIC4yWytE58sMIihvo9H1ScmmVwBcQP6XETqYd0aSHp1gOa9RdUPDvoXQ5oqygTqVtxaDr6wUFKrKItgBMzWIdNZ6y7O9E0DhEPTbE9rfBo6KTFsHAZnMg4k68CDp2woYIaXbmYTWcvbzIuHO7_37GT79XdIwkm95QJ7hYC9RiwrV7mesbY4PAahERJawntho0my942XheVLmGwLMBkQ",
+                    "expires_in": 3600,
+                    "token_type": "bearer"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "One of the provided parameters is missing, unsupported or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "object",
+                  "required": [],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "A machine friendly error code describing what went wrong",
+                      "enum": [
+                        "invalid_client",
+                        "unsupported_grant_type",
+                        "invalid_request"
+                      ]
+                    },
+                    "error_description": {
+                      "type": "string",
+                      "description": "A human readable message giving more context about what went wrong"
+                    },
+                    "example": {
+                      "error": "invalid_request",
+                      "error_description": "The provided client credentials are invalid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
