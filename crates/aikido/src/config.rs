@@ -24,7 +24,7 @@ impl Region {
     }
 
     pub fn oauth_url(&self) -> &str {
-        "https://app.aikido.io/api/oauth"
+        "https://app.aikido.dev/api/oauth"
     }
 }
 
@@ -269,8 +269,8 @@ mod tests {
 
     #[test]
     fn oauth_host_is_normalized() {
-        assert_eq!(Region::Eu.oauth_url(), "https://app.aikido.io/api/oauth");
-        assert_eq!(Region::Us.oauth_url(), "https://app.aikido.io/api/oauth");
-        assert_eq!(Region::Me.oauth_url(), "https://app.aikido.io/api/oauth");
+        assert_eq!(Region::Eu.oauth_url(), "https://app.aikido.dev/api/oauth");
+        assert_eq!(Region::Us.oauth_url(), "https://app.aikido.dev/api/oauth");
+        assert_eq!(Region::Me.oauth_url(), "https://app.aikido.dev/api/oauth");
     }
 }
