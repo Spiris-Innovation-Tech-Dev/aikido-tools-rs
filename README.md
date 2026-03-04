@@ -215,13 +215,15 @@ Set `MCP_MAX_RESULTS` to control the default page size (default: 50).
 | `aikido_api_put` | Raw PUT request |
 | `aikido_api_delete` | Raw DELETE request |
 
-## Claude Code Skill
+## Agent Skill
 
-Install the Aikido Security skill so Claude Code knows how to use the CLI:
+Install the Aikido Security skill so your coding agent knows how to use the CLI:
 
+```bash
+npx skills add Spiris-Innovation-Tech-Dev/aikido-tools-rs
 ```
-/install-skill https://github.com/Spiris-Innovation-Tech-Dev/aikido-tools-rs
-```
+
+Works with Claude Code, Cursor, Codex, OpenCode, and [37 more agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ## Architecture
 
