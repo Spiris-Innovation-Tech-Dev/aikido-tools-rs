@@ -2,6 +2,16 @@
 
 Rust workspace for interacting with the [Aikido Security](https://www.aikido.dev/) API.
 
+## Agent Skill
+
+Install the Aikido Security skill so your coding agent knows how to use the CLI:
+
+```bash
+npx skills add Spiris-Innovation-Tech-Dev/aikido-tools-rs
+```
+
+Works with Claude Code, Cursor, Codex, OpenCode, and [37 more agents](https://github.com/vercel-labs/skills#supported-agents).
+
 ## Crates
 
 | Crate | Description |
@@ -214,16 +224,6 @@ Set `MCP_MAX_RESULTS` to control the default page size (default: 50).
 | `aikido_api_post` | Raw POST request |
 | `aikido_api_put` | Raw PUT request |
 | `aikido_api_delete` | Raw DELETE request |
-
-## Agent Skill
-
-Install the Aikido Security skill so your coding agent knows how to use the CLI:
-
-```bash
-npx skills add Spiris-Innovation-Tech-Dev/aikido-tools-rs
-```
-
-Works with Claude Code, Cursor, Codex, OpenCode, and [37 more agents](https://github.com/vercel-labs/skills#supported-agents).
 
 ## Architecture
 
