@@ -49,7 +49,7 @@ Use `--format json` for machine-readable output or `--format toon` for structure
 Install the Aikido Security skill in Claude Code so it knows how to use the CLI:
 
 ```
-/install-skill https://github.com/jschaf/aikido
+/install-skill <repo-url>
 ```
 
 This teaches Claude Code the exact CLI syntax for querying vulnerabilities, triaging issues, checking compliance, and more.
