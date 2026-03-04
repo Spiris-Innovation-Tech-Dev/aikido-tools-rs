@@ -1,0 +1,22 @@
+{
+  "name": "aikido-security",
+  "owner": {
+    "name": "aikido-security",
+    "url": "https://github.com/jschaf/aikido"
+  },
+  "metadata": {
+    "description": "Claude Code skill for the Aikido Security CLI",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "aikido-security",
+      "description": "Query and manage Aikido Security vulnerabilities, issues, repositories, compliance, and infrastructure via the aikido CLI.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aikido-security"
+      ]
+    }
+  ]
+}
