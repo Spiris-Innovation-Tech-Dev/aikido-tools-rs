@@ -9,6 +9,7 @@ impl AikidoClient {
     }
 
     pub async fn list_tasks_from_project(&self, project_id: &str) -> Result<Vec<TaskTrackingTask>> {
+        let project_id = crate::client::encode_path_segment(project_id, "project_id")?;
         self.get(&format!("/task_tracking/projects/{project_id}/tasks"))
             .await
     }

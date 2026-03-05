@@ -22,10 +22,6 @@ struct Cli {
     #[arg(long, env = "AIKIDO_CLIENT_ID")]
     client_id: Option<String>,
 
-    /// OAuth2 client secret
-    #[arg(long, env = "AIKIDO_CLIENT_SECRET")]
-    client_secret: Option<String>,
-
     /// Output format: pretty, json, toon
     #[arg(long, value_enum, default_value = "pretty")]
     format: output::OutputFormat,
@@ -113,7 +109,7 @@ fn build_client(cli: &Cli) -> Result<AikidoClient> {
     let config = Config::load(ConfigOverrides {
         region: region_override,
         client_id: cli.client_id.clone(),
-        client_secret: cli.client_secret.clone(),
+        client_secret: None,
     })?;
 
     let region = config.region();
@@ -171,6 +167,8 @@ async fn main() -> Result<()> {
         Commands::CiScans(args) => println!("{}", args.execute(&client).await?.format(format)?),
         Commands::Api { command } => {
             let out = match command {
+                commands::api::ApiCommands::Ops(args) => args.execute(&client).await?.format(format)?,
+                commands::api::ApiCommands::Exec(args) => args.execute(&client).await?.format(format)?,
                 commands::api::ApiCommands::Get(args) => args.execute(&client).await?.format(format)?,
                 commands::api::ApiCommands::Post(args) => args.execute(&client).await?.format(format)?,
                 commands::api::ApiCommands::Put(args) => args.execute(&client).await?.format(format)?,

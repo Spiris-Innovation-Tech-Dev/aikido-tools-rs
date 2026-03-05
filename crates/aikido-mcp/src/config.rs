@@ -5,6 +5,7 @@ pub struct McpConfig {
     pub region: Region,
     pub credentials: Credentials,
     pub max_results: u32,
+    pub allow_raw_api_mutations: bool,
 }
 
 impl McpConfig {
@@ -16,6 +17,15 @@ impl McpConfig {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(50);
+        let allow_raw_api_mutations = std::env::var("MCP_ALLOW_RAW_API_MUTATIONS")
+            .ok()
+            .map(|value| {
+                matches!(
+                    value.to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes" | "on"
+                )
+            })
+            .unwrap_or(false);
 
         let region = config.region();
         let credentials = config
@@ -26,6 +36,7 @@ impl McpConfig {
             region,
             credentials,
             max_results,
+            allow_raw_api_mutations,
         })
     }
 }

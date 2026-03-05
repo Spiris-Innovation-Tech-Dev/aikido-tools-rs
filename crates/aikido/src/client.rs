@@ -65,6 +65,27 @@ const TTL_ISSUES: Duration = Duration::from_secs(60);
 const TTL_METADATA: Duration = Duration::from_secs(300);
 const TTL_RULES: Duration = Duration::from_secs(600);
 const TTL_COMPLIANCE: Duration = Duration::from_secs(300);
+const RESPONSE_CACHE_MAX_ENTRIES: usize = 256;
+const RESPONSE_CACHE_MAX_BODY_BYTES: usize = 256 * 1024;
+
+pub(crate) fn encode_path_segment(segment: &str, field_name: &str) -> Result<String> {
+    if segment.is_empty() {
+        return Err(AikidoError::General(format!(
+            "Invalid {field_name}: value must not be empty"
+        )));
+    }
+    if segment == "." || segment == ".." || segment.contains('/') || segment.contains('\\') {
+        return Err(AikidoError::General(format!(
+            "Invalid {field_name}: path separators are not allowed"
+        )));
+    }
+    if segment.chars().any(|ch| ch.is_control()) {
+        return Err(AikidoError::General(format!(
+            "Invalid {field_name}: control characters are not allowed"
+        )));
+    }
+    Ok(urlencoding::encode(segment).into_owned())
+}
 
 fn ttl_for_path(path: &str) -> Duration {
     if path.starts_with("/issues") || path.starts_with("/open-issue-groups") {
@@ -137,18 +158,35 @@ impl AikidoClient {
     // ---- Response cache helpers ----
 
     async fn cache_get(&self, path: &str) -> Option<String> {
-        let cache = self.response_cache.read().await;
-        cache.get(path).and_then(|entry| {
+        let mut cache = self.response_cache.write().await;
+        if let Some(entry) = cache.get(path) {
             if entry.is_valid() {
-                Some(entry.body.clone())
-            } else {
-                None
+                return Some(entry.body.clone());
             }
-        })
+        }
+        cache.remove(path);
+        None
     }
 
     async fn cache_put(&self, path: &str, body: &str, ttl: Duration) {
+        if body.len() > RESPONSE_CACHE_MAX_BODY_BYTES {
+            return;
+        }
+
         let mut cache = self.response_cache.write().await;
+        cache.retain(|_, entry| entry.is_valid());
+
+        while cache.len() >= RESPONSE_CACHE_MAX_ENTRIES {
+            let Some(oldest_key) = cache
+                .iter()
+                .min_by_key(|(_, entry)| entry.cached_at)
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            cache.remove(&oldest_key);
+        }
+
         cache.insert(
             path.to_string(),
             CacheEntry {
@@ -272,7 +310,10 @@ impl AikidoClient {
             self.cache_put(endpoint, &text, ttl_for_path(endpoint))
                 .await;
             serde_json::from_str(&text).map_err(|e| {
-                AikidoError::General(format!("Failed to parse response: {e}\nBody: {text}"))
+                AikidoError::General(format!(
+                    "Failed to parse response body as JSON: {e}. response_length={}",
+                    text.len()
+                ))
             })
         } else {
             parse_api_error(status.as_u16(), &text)
@@ -421,7 +462,10 @@ impl AikidoClient {
 
         if status.is_success() {
             serde_json::from_str(&text).map_err(|e| {
-                AikidoError::General(format!("Failed to parse response: {e}\nBody: {text}"))
+                AikidoError::General(format!(
+                    "Failed to parse response body as JSON: {e}. response_length={}",
+                    text.len()
+                ))
             })
         } else {
             parse_api_error(status.as_u16(), &text)
@@ -476,7 +520,10 @@ fn parse_api_error<T>(status: u16, body: &str) -> Result<T> {
     if let Ok(err) = serde_json::from_str::<ApiError>(body) {
         Err(AikidoError::Api {
             status,
-            error: err.error.or(err.message.clone()).unwrap_or_else(|| "unknown".into()),
+            error: err
+                .error
+                .or(err.message.clone())
+                .unwrap_or_else(|| "unknown".into()),
             error_description: err
                 .error_description
                 .or(err.message)
@@ -578,10 +625,7 @@ mod tests {
             vec!["/issues", "/open-issue-groups"]
         );
         assert_eq!(invalidation_prefixes("/teams/5/addUser"), vec!["/teams"]);
-        assert_eq!(
-            invalidation_prefixes("/containers/42"),
-            vec!["/containers"]
-        );
+        assert_eq!(invalidation_prefixes("/containers/42"), vec!["/containers"]);
         assert_eq!(
             invalidation_prefixes("/repositories/code/activate"),
             vec!["/repositories"]
@@ -603,5 +647,22 @@ mod tests {
             ttl: Duration::from_secs(60),
         };
         assert!(!expired.is_valid());
+    }
+
+    #[test]
+    fn encode_path_segment_rejects_unsafe_values() {
+        assert!(encode_path_segment("", "id").is_err());
+        assert!(encode_path_segment("..", "id").is_err());
+        assert!(encode_path_segment("foo/bar", "id").is_err());
+        assert!(encode_path_segment("foo\\bar", "id").is_err());
+    }
+
+    #[test]
+    fn encode_path_segment_escapes_reserved_chars() {
+        assert_eq!(
+            encode_path_segment("project 1", "project_id").unwrap(),
+            "project%201"
+        );
+        assert_eq!(encode_path_segment("a?b", "project_id").unwrap(), "a%3Fb");
     }
 }

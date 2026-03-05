@@ -5,6 +5,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+#[cfg(target_os = "macos")]
+const SECURITY_COMMAND_PATH: &str = "/usr/bin/security";
+#[cfg(not(target_os = "macos"))]
+const SECURITY_COMMAND_PATH: &str = "security";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Region {
@@ -210,7 +215,7 @@ impl Config {
     }
 
     fn read_keychain(account: &str) -> Result<String> {
-        let output = std::process::Command::new("security")
+        let output = std::process::Command::new(SECURITY_COMMAND_PATH)
             .args([
                 "find-generic-password",
                 "-s",

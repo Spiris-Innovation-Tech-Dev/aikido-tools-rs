@@ -8,11 +8,8 @@ impl AikidoClient {
         self.get("/virtual-machines").await
     }
 
-    pub async fn export_virtual_machine_sbom(
-        &self,
-        vm_id: i64,
-        format: &str,
-    ) -> Result<Value> {
+    pub async fn export_virtual_machine_sbom(&self, vm_id: i64, format: &str) -> Result<Value> {
+        let format = crate::client::encode_path_segment(format, "format")?;
         self.get(&format!("/virtual-machines/{vm_id}/export/{format}"))
             .await
     }

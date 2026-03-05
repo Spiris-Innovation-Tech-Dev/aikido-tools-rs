@@ -6,6 +6,7 @@ use std::sync::Arc;
 pub struct ServerState {
     pub client: Arc<AikidoClient>,
     pub max_results: u32,
+    pub allow_raw_api_mutations: bool,
 }
 
 impl ServerState {
@@ -14,6 +15,7 @@ impl ServerState {
         Self {
             client: Arc::new(client),
             max_results: config.max_results,
+            allow_raw_api_mutations: config.allow_raw_api_mutations,
         }
     }
 
