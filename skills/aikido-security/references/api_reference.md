@@ -11,6 +11,9 @@ Use `--format json` for machine-readable output or piping to `jq`.
 
 ```bash
 aikido workspace
+aikido workspace --list
+aikido workspace --use-workspace <ALIAS>
+aikido workspace --clear-active
 ```
 
 ### Issues
@@ -93,6 +96,7 @@ aikido api post "/domains" --body '{"domain":"https://example.com","kind":"front
 | Flag | Env var | Description |
 |------|---------|-------------|
 | `--region` | `AIKIDO_REGION` | eu, us, or me |
+| `--workspace` | `AIKIDO_WORKSPACE` | workspace alias from config |
 | `--client-id` | `AIKIDO_CLIENT_ID` | OAuth2 client ID |
 | `--client-secret` | `AIKIDO_CLIENT_SECRET` | OAuth2 client secret |
 | `--format` | | pretty, json, toon |

@@ -28,6 +28,93 @@ impl Formattable for WorkspaceOutput {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct WorkspaceAliasRow {
+    pub alias: String,
+    pub region: Option<String>,
+    pub has_client_id: bool,
+    pub has_client_secret: bool,
+    pub is_selected: bool,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkspaceAliasesOutput {
+    pub active_workspace: Option<String>,
+    pub selected_workspace: Option<String>,
+    pub workspaces: Vec<WorkspaceAliasRow>,
+}
+
+impl Formattable for WorkspaceAliasesOutput {
+    fn format_pretty(&self) -> anyhow::Result<String> {
+        let mut out = String::new();
+        out.push_str(&format!(
+            "{}\n",
+            format!("Configured workspaces ({})", self.workspaces.len())
+                .bright_cyan()
+                .bold()
+        ));
+
+        if self.workspaces.is_empty() {
+            out.push_str("  No workspaces configured in ~/.aikido/config.toml\n");
+            return Ok(out);
+        }
+
+        for ws in &self.workspaces {
+            let mut tags = Vec::new();
+            if ws.is_selected {
+                tags.push("selected".bright_green().bold().to_string());
+            }
+            if ws.is_active {
+                tags.push("active".bright_blue().bold().to_string());
+            }
+
+            let region = ws.region.as_deref().unwrap_or("default");
+            let credentials = if ws.has_client_id && ws.has_client_secret {
+                "client_id+client_secret".green().to_string()
+            } else {
+                "missing credentials".red().to_string()
+            };
+
+            if tags.is_empty() {
+                out.push_str(&format!(
+                    "  {} {} {}\n",
+                    "●".bright_black(),
+                    ws.alias.bold(),
+                    format!("[region: {region}, {credentials}]").dimmed()
+                ));
+            } else {
+                out.push_str(&format!(
+                    "  {} {} {} {}\n",
+                    "●".bright_black(),
+                    ws.alias.bold(),
+                    format!("({})", tags.join(", ")),
+                    format!("[region: {region}, {credentials}]").dimmed()
+                ));
+            }
+        }
+        Ok(out)
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum WorkspaceCommandOutput {
+    Info { workspace: WorkspaceOutput },
+    List { configured: WorkspaceAliasesOutput },
+    Message { result: MessageOutput },
+}
+
+impl Formattable for WorkspaceCommandOutput {
+    fn format_pretty(&self) -> anyhow::Result<String> {
+        match self {
+            WorkspaceCommandOutput::Info { workspace } => workspace.format_pretty(),
+            WorkspaceCommandOutput::List { configured } => configured.format_pretty(),
+            WorkspaceCommandOutput::Message { result } => result.format_pretty(),
+        }
+    }
+}
+
 // ========== Issue Groups ==========
 
 #[derive(Debug, Serialize)]
@@ -232,7 +319,11 @@ impl Formattable for IssueGroupDetailOutput {
                         Some(v) => format!("{} ({})", pkg, v),
                         None => pkg.clone(),
                     };
-                    out.push_str(&format!("      {} {}\n", "Package:".bright_black(), version_info));
+                    out.push_str(&format!(
+                        "      {} {}\n",
+                        "Package:".bright_black(),
+                        version_info
+                    ));
                 }
                 if !i.patched_versions.is_empty() {
                     out.push_str(&format!(

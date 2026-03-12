@@ -30,14 +30,17 @@ aikido compliance-soc2                     # SOC2 overview
 aikido compliance-nis2                     # NIS2 overview
 aikido activity-log                        # Activity log
 aikido ci-scans                            # CI scan results
-aikido workspace                           # Workspace info
+aikido workspace                           # Workspace info for selected credentials
+aikido workspace --list                    # List configured workspace aliases
+aikido workspace --use-workspace <ALIAS>   # Set default workspace alias
+aikido workspace --clear-active            # Clear default workspace alias
 aikido api get <ENDPOINT>                  # Raw GET  (e.g. "/repos?page=0")
 aikido api post <ENDPOINT> [--body JSON]   # Raw POST
 aikido api put <ENDPOINT> [--body JSON]    # Raw PUT
 aikido api delete <ENDPOINT>               # Raw DELETE
 ```
 
-Global flags: `--format pretty|json|toon` (default: pretty), `--region eu|us|me`
+Global flags: `--format pretty|json|toon` (default: pretty), `--region eu|us|me`, `--workspace <alias>`
 
 ## Triage Workflow
 

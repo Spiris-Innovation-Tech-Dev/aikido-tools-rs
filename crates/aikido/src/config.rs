@@ -1,5 +1,6 @@
 use crate::error::{AikidoError, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -74,10 +75,29 @@ pub struct Config {
     pub connection: ConnectionConfig,
     #[serde(default)]
     pub defaults: DefaultsConfig,
+    #[serde(default)]
+    pub workspaces: BTreeMap<String, WorkspaceConfig>,
+    #[serde(default)]
+    pub active_workspace: Option<String>,
+    #[serde(skip)]
+    selected_workspace: Option<String>,
+    #[serde(skip)]
+    override_region: Option<Region>,
+    #[serde(skip)]
+    override_client_id: Option<String>,
+    #[serde(skip)]
+    override_client_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConnectionConfig {
+    pub region: Option<Region>,
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkspaceConfig {
     pub region: Option<Region>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
@@ -93,6 +113,7 @@ pub struct ConfigOverrides {
     pub region: Option<Region>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
+    pub workspace: Option<String>,
 }
 
 impl Config {
@@ -107,6 +128,10 @@ impl Config {
         let config = Self::load(overrides)?;
         config.validate()?;
         Ok(config)
+    }
+
+    pub fn load_global_file() -> Result<Self> {
+        Self::load_global()
     }
 
     fn load_global() -> Result<Self> {
@@ -135,34 +160,123 @@ impl Config {
         Ok(Self::global_config_dir()?.join("config.toml"))
     }
 
+    fn global_config_path_hint() -> String {
+        Self::global_config_path()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|_| "~/.aikido/config.toml".to_string())
+    }
+
+    fn workspace_for_selection(&self) -> Result<Option<&WorkspaceConfig>> {
+        let Some(name) = self.selected_workspace_name() else {
+            return Ok(None);
+        };
+
+        self.workspaces.get(name).map(Some).ok_or_else(|| {
+            AikidoError::General(format!(
+                "Workspace '{}' is not configured in {}",
+                name,
+                Self::global_config_path_hint()
+            ))
+        })
+    }
+
+    pub fn selected_workspace_name(&self) -> Option<&str> {
+        self.selected_workspace
+            .as_deref()
+            .or(self.active_workspace.as_deref())
+    }
+
+    pub fn active_workspace_name(&self) -> Option<&str> {
+        self.active_workspace.as_deref()
+    }
+
+    pub fn set_active_workspace(&mut self, workspace: Option<String>) -> Result<()> {
+        match workspace {
+            Some(name) => {
+                let trimmed = name.trim();
+                if trimmed.is_empty() {
+                    return Err(AikidoError::General(
+                        "Workspace alias must not be empty".to_string(),
+                    ));
+                }
+                if !self.workspaces.contains_key(trimmed) {
+                    return Err(AikidoError::General(format!(
+                        "Workspace '{}' is not configured in {}",
+                        trimmed,
+                        Self::global_config_path_hint()
+                    )));
+                }
+                self.active_workspace = Some(trimmed.to_string());
+            }
+            None => {
+                self.active_workspace = None;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn save_global(&self) -> Result<()> {
+        let path = Self::global_config_path()?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let mut serializable = self.clone();
+        serializable.selected_workspace = None;
+
+        let data = toml::to_string_pretty(&serializable)
+            .map_err(|e| AikidoError::General(format!("Config serialize error: {e}")))?;
+        fs::write(path, data)?;
+        Ok(())
+    }
+
     fn apply_env_vars(&mut self) {
+        if let Ok(workspace) = env::var("AIKIDO_WORKSPACE") {
+            let trimmed = workspace.trim();
+            if !trimmed.is_empty() {
+                self.selected_workspace = Some(trimmed.to_string());
+            }
+        }
         if let Ok(region) = env::var("AIKIDO_REGION") {
             if let Ok(r) = region.parse() {
-                self.connection.region = Some(r);
+                self.override_region = Some(r);
             }
         }
         if let Ok(id) = env::var("AIKIDO_CLIENT_ID") {
-            self.connection.client_id = Some(id);
+            self.override_client_id = Some(id);
         }
         if let Ok(secret) = env::var("AIKIDO_CLIENT_SECRET") {
-            self.connection.client_secret = Some(secret);
+            self.override_client_secret = Some(secret);
         }
     }
 
     fn apply_overrides(&mut self, overrides: ConfigOverrides) {
+        if let Some(workspace) = overrides.workspace {
+            let trimmed = workspace.trim();
+            if trimmed.is_empty() {
+                self.selected_workspace = None;
+            } else {
+                self.selected_workspace = Some(trimmed.to_string());
+            }
+        }
         if let Some(region) = overrides.region {
-            self.connection.region = Some(region);
+            self.override_region = Some(region);
         }
         if let Some(id) = overrides.client_id {
-            self.connection.client_id = Some(id);
+            self.override_client_id = Some(id);
         }
         if let Some(secret) = overrides.client_secret {
-            self.connection.client_secret = Some(secret);
+            self.override_client_secret = Some(secret);
         }
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.connection.client_id.is_none() {
+        let workspace = self.workspace_for_selection()?;
+
+        let has_client_id = self.override_client_id.is_some()
+            || workspace.and_then(|w| w.client_id.as_deref()).is_some();
+        let has_client_id = has_client_id || self.connection.client_id.is_some();
+        if !has_client_id {
             // Try keychain before failing
             if Self::read_keychain("client_id").is_err() {
                 return Err(AikidoError::Auth(
@@ -170,7 +284,11 @@ impl Config {
                 ));
             }
         }
-        if self.connection.client_secret.is_none() {
+
+        let has_client_secret = self.override_client_secret.is_some()
+            || workspace.and_then(|w| w.client_secret.as_deref()).is_some();
+        let has_client_secret = has_client_secret || self.connection.client_secret.is_some();
+        if !has_client_secret {
             if Self::read_keychain("client_secret").is_err() {
                 return Err(AikidoError::Auth(
                     "Client secret is required. Set AIKIDO_CLIENT_SECRET env var, config file, or store in keychain".into(),
@@ -181,7 +299,14 @@ impl Config {
     }
 
     pub fn region(&self) -> Region {
-        self.connection.region.unwrap_or_default()
+        self.override_region
+            .or_else(|| {
+                self.selected_workspace_name()
+                    .and_then(|name| self.workspaces.get(name))
+                    .and_then(|workspace| workspace.region)
+            })
+            .or(self.connection.region)
+            .unwrap_or_default()
     }
 
     pub fn credentials(&self) -> Result<Credentials> {
@@ -194,17 +319,21 @@ impl Config {
             return Ok(Credentials::Token(token));
         }
 
+        let workspace = self.workspace_for_selection()?;
+
         let client_id = self
-            .connection
-            .client_id
+            .override_client_id
             .clone()
+            .or_else(|| workspace.and_then(|w| w.client_id.clone()))
+            .or_else(|| self.connection.client_id.clone())
             .or_else(|| Self::read_keychain("client_id").ok())
             .ok_or_else(|| AikidoError::Auth("Client ID not found".into()))?;
 
         let client_secret = self
-            .connection
-            .client_secret
+            .override_client_secret
             .clone()
+            .or_else(|| workspace.and_then(|w| w.client_secret.clone()))
+            .or_else(|| self.connection.client_secret.clone())
             .or_else(|| Self::read_keychain("client_secret").ok())
             .ok_or_else(|| AikidoError::Auth("Client secret not found".into()))?;
 
@@ -277,5 +406,98 @@ mod tests {
         assert_eq!(Region::Eu.oauth_url(), "https://app.aikido.dev/api/oauth");
         assert_eq!(Region::Us.oauth_url(), "https://app.aikido.dev/api/oauth");
         assert_eq!(Region::Me.oauth_url(), "https://app.aikido.dev/api/oauth");
+    }
+
+    #[test]
+    fn selected_workspace_prefers_explicit_override() {
+        let config = Config {
+            active_workspace: Some("prod".to_string()),
+            selected_workspace: Some("staging".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(config.selected_workspace_name(), Some("staging"));
+    }
+
+    #[test]
+    fn region_uses_selected_workspace_config() {
+        let mut workspaces = BTreeMap::new();
+        workspaces.insert(
+            "staging".to_string(),
+            WorkspaceConfig {
+                region: Some(Region::Us),
+                client_id: None,
+                client_secret: None,
+            },
+        );
+        let config = Config {
+            workspaces,
+            active_workspace: Some("staging".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(config.region(), Region::Us);
+    }
+
+    #[test]
+    fn credentials_use_selected_workspace_config() {
+        let mut workspaces = BTreeMap::new();
+        workspaces.insert(
+            "prod".to_string(),
+            WorkspaceConfig {
+                region: Some(Region::Eu),
+                client_id: Some("workspace-id".to_string()),
+                client_secret: Some("workspace-secret".to_string()),
+            },
+        );
+        let config = Config {
+            workspaces,
+            active_workspace: Some("prod".to_string()),
+            ..Default::default()
+        };
+
+        let creds = config.credentials().unwrap();
+        match creds {
+            Credentials::ClientCredentials {
+                client_id,
+                client_secret,
+            } => {
+                assert_eq!(client_id, "workspace-id");
+                assert_eq!(client_secret, "workspace-secret");
+            }
+            Credentials::Token(_) => panic!("expected client credentials"),
+        }
+    }
+
+    #[test]
+    fn set_active_workspace_requires_configured_alias() {
+        let mut workspaces = BTreeMap::new();
+        workspaces.insert("prod".to_string(), WorkspaceConfig::default());
+        let mut config = Config {
+            workspaces,
+            ..Default::default()
+        };
+
+        let error = config
+            .set_active_workspace(Some("missing".to_string()))
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Workspace 'missing' is not configured"));
+    }
+
+    #[test]
+    fn set_active_workspace_trims_alias() {
+        let mut workspaces = BTreeMap::new();
+        workspaces.insert("prod".to_string(), WorkspaceConfig::default());
+        let mut config = Config {
+            workspaces,
+            ..Default::default()
+        };
+
+        config
+            .set_active_workspace(Some("  prod  ".to_string()))
+            .unwrap();
+        assert_eq!(config.active_workspace_name(), Some("prod"));
     }
 }

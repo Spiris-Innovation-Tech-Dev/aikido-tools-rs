@@ -18,6 +18,10 @@ struct Cli {
     #[arg(long, env = "AIKIDO_REGION")]
     region: Option<String>,
 
+    /// Workspace alias from ~/.aikido/config.toml
+    #[arg(long, env = "AIKIDO_WORKSPACE")]
+    workspace: Option<String>,
+
     /// OAuth2 client ID
     #[arg(long, env = "AIKIDO_CLIENT_ID")]
     client_id: Option<String>,
@@ -33,7 +37,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Show workspace information
-    Workspace(commands::workspace::WorkspaceInfoArgs),
+    Workspace(commands::workspace::WorkspaceArgs),
 
     /// List open issue groups
     Issues(commands::issues::IssueGroupsListArgs),
@@ -108,6 +112,7 @@ fn build_client(cli: &Cli) -> Result<AikidoClient> {
 
     let config = Config::load(ConfigOverrides {
         region: region_override,
+        workspace: cli.workspace.clone(),
         client_id: cli.client_id.clone(),
         client_secret: None,
     })?;
@@ -121,8 +126,20 @@ fn build_client(cli: &Cli) -> Result<AikidoClient> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let client = build_client(&cli)?;
     let format = cli.format;
+
+    if let Commands::Workspace(args) = &cli.command {
+        if !args.requires_client() {
+            println!(
+                "{}",
+                args.execute_local(cli.workspace.as_deref())?
+                    .format(format)?
+            );
+            return Ok(());
+        }
+    }
+
+    let client = build_client(&cli)?;
 
     match cli.command {
         Commands::Workspace(args) => println!("{}", args.execute(&client).await?.format(format)?),
@@ -167,11 +184,21 @@ async fn main() -> Result<()> {
         Commands::CiScans(args) => println!("{}", args.execute(&client).await?.format(format)?),
         Commands::Api { command } => {
             let out = match command {
-                commands::api::ApiCommands::Ops(args) => args.execute(&client).await?.format(format)?,
-                commands::api::ApiCommands::Exec(args) => args.execute(&client).await?.format(format)?,
-                commands::api::ApiCommands::Get(args) => args.execute(&client).await?.format(format)?,
-                commands::api::ApiCommands::Post(args) => args.execute(&client).await?.format(format)?,
-                commands::api::ApiCommands::Put(args) => args.execute(&client).await?.format(format)?,
+                commands::api::ApiCommands::Ops(args) => {
+                    args.execute(&client).await?.format(format)?
+                }
+                commands::api::ApiCommands::Exec(args) => {
+                    args.execute(&client).await?.format(format)?
+                }
+                commands::api::ApiCommands::Get(args) => {
+                    args.execute(&client).await?.format(format)?
+                }
+                commands::api::ApiCommands::Post(args) => {
+                    args.execute(&client).await?.format(format)?
+                }
+                commands::api::ApiCommands::Put(args) => {
+                    args.execute(&client).await?.format(format)?
+                }
                 commands::api::ApiCommands::Delete(args) => {
                     args.execute(&client).await?.format(format)?
                 }

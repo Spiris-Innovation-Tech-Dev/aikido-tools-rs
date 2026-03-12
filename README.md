@@ -32,7 +32,7 @@ cargo install --path crates/aikido-mcp
 
 ## Configuration
 
-Credentials are resolved in order: CLI flags → environment variables → config file → macOS Keychain.
+Credentials are resolved in order: CLI flags → environment variables → selected workspace in config file → global connection config → macOS Keychain.
 
 ```bash
 # Environment variables
@@ -49,6 +49,18 @@ security add-generic-password -s aikido-cli -a client_secret -w "your-client-sec
 # region = "eu"
 # client_id = "your-client-id"
 # client_secret = "your-client-secret"
+#
+# Optional multi-workspace config
+# active_workspace = "prod"
+# [workspaces.prod]
+# region = "eu"
+# client_id = "prod-client-id"
+# client_secret = "prod-client-secret"
+#
+# [workspaces.staging]
+# region = "us"
+# client_id = "staging-client-id"
+# client_secret = "staging-client-secret"
 ```
 
 ## CLI
@@ -58,6 +70,7 @@ security add-generic-password -s aikido-cli -a client_secret -w "your-client-sec
 | Flag | Env Var | Description |
 |------|---------|-------------|
 | `--region` | `AIKIDO_REGION` | API region: `eu`, `us`, or `me` |
+| `--workspace` | `AIKIDO_WORKSPACE` | Workspace alias from `~/.aikido/config.toml` |
 | `--client-id` | `AIKIDO_CLIENT_ID` | OAuth2 client ID |
 | `--client-secret` | `AIKIDO_CLIENT_SECRET` | OAuth2 client secret |
 | `--format` | | Output format: `pretty` (default), `json`, `toon` |
@@ -108,7 +121,10 @@ security add-generic-password -s aikido-cli -a client_secret -w "your-client-sec
 
 | Command | Description |
 |---------|-------------|
-| `aikido workspace` | Workspace info (name, provider, org) |
+| `aikido workspace` | Workspace info for selected credentials |
+| `aikido workspace --list` | List configured workspace aliases |
+| `aikido workspace --use-workspace <ALIAS>` | Set default workspace alias |
+| `aikido workspace --clear-active` | Clear default workspace alias |
 | `aikido api get <ENDPOINT>` | Raw GET request to any API endpoint |
 | `aikido api post <ENDPOINT> [--body JSON]` | Raw POST request |
 | `aikido api put <ENDPOINT> [--body JSON]` | Raw PUT request |
