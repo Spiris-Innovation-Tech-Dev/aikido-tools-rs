@@ -33,6 +33,7 @@ cargo install --path crates/aikido-mcp
 ## Configuration
 
 Credentials are resolved in order: CLI flags → environment variables → selected workspace in config file → global connection config → macOS Keychain.
+Workspace selection is resolved as `--workspace`/`AIKIDO_WORKSPACE` first, then `active_workspace` from `~/.aikido/config.toml`.
 
 ```bash
 # Environment variables
@@ -72,7 +73,6 @@ security add-generic-password -s aikido-cli -a client_secret -w "your-client-sec
 | `--region` | `AIKIDO_REGION` | API region: `eu`, `us`, or `me` |
 | `--workspace` | `AIKIDO_WORKSPACE` | Workspace alias from `~/.aikido/config.toml` |
 | `--client-id` | `AIKIDO_CLIENT_ID` | OAuth2 client ID |
-| `--client-secret` | `AIKIDO_CLIENT_SECRET` | OAuth2 client secret |
 | `--format` | | Output format: `pretty` (default), `json`, `toon` |
 
 ### Commands
@@ -141,6 +141,9 @@ aikido issue 20858361
 
 # Dismiss a false positive
 aikido issue-ignore 20858317 --reason "false positive"
+
+# Use a named workspace profile from ~/.aikido/config.toml
+aikido --workspace staging workspace
 
 # Raw API access for endpoints without a dedicated command
 aikido api get "/repositories/code?page=0&per_page=5"
